@@ -4,6 +4,9 @@
   https://stackoverflow.com/questions/63969864/creating-a-phase-vocoder-with-the-webaudio-api-using-analyzer-and-periodic-wave
 */
 
+// To run locally: Added button setup_audio to fix:
+// The AudioContext was not allowed to start. It must be resumed (or created) after a user gesture on the page
+
 let otherVideos = {};
 let myVideo;
 var audioCtx;
@@ -37,7 +40,12 @@ function getRandomPhase() {
 
 function setup() {
   createCanvas(300, 300);
-    
+  createButton('setup_audio').mousePressed(function () {
+    setup_audio();
+  });
+}
+
+function setup_audio() {
   audioCtx = new AudioContext();
   analyser = audioCtx.createAnalyser();
   analyser.fftSize = 1024;
@@ -47,61 +55,66 @@ function setup() {
   dataArray = new Uint8Array(analyser.frequencyBinCount);
   osc = audioCtx.createOscillator();
   osc.start();
-  
-  let constraints = {audio: true, "video": {
-        "width": 320,
-        "height": 240
-    }};
-  
-  myVideo = createCapture(constraints, 
-    function(stream) {
-	  
-      var source = audioCtx.createMediaStreamSource(stream);
-      
-      // filter it
-      var bandpassFilter = audioCtx.createBiquadFilter();
-      bandpassFilter.type = 'bandpass';
-      bandpassFilter.frequency.value = 1500;
-      source.connect(bandpassFilter);
 
-      bandpassFilter.connect(analyser);
-      bandpassFilter.connect(gainNode);
-      //source.connect(analyser);
-    
-      //analyser.getByteTimeDomainData(dataArray);
-      //analyser.getByteFrequencyData(dataArray);
-    
-      // Create new Stream
-      // newStream.stream is a MediaStream
-      // Add audio track
-      var newStream = audioCtx.createMediaStreamDestination();  
-      // UNCOMMENT THIS
-      //osc.connect(newStream);
-      // COMMENT THIS
-      osc.connect(gainNode);
-        
-      gainNode.connect(newStream);
+  let constraints = {
+    audio: true,
+    video: {
+      width: 320,
+      height: 240,
+    },
+  };
 
-      // Add video track
-    
-      // Extract the video tracks from the stream
-      let videoTracks = stream.getVideoTracks();
-    
-      // Use the first video track, add it to the newStream
-      if (videoTracks.length > 0) {
-        newStream.stream.addTrack(videoTracks[0]);
-      }    
-    
-      let p5l = new p5LiveMedia(this, "CAPTURE", newStream.stream, "Day 5 - 50 Days of Video Chat")
-	  p5l.on('stream', gotStream);
-      p5l.on('disconnect', gotDisconnect);    
-    
-      otherVideos['me'] = myVideo;
+  myVideo = createCapture(constraints, function (stream) {
+    var source = audioCtx.createMediaStreamSource(stream);
 
-      start = true;
+    // filter it
+    var bandpassFilter = audioCtx.createBiquadFilter();
+    bandpassFilter.type = 'bandpass';
+    bandpassFilter.frequency.value = 1500;
+    source.connect(bandpassFilter);
+
+    bandpassFilter.connect(analyser);
+    bandpassFilter.connect(gainNode);
+    //source.connect(analyser);
+
+    //analyser.getByteTimeDomainData(dataArray);
+    //analyser.getByteFrequencyData(dataArray);
+
+    // Create new Stream
+    // newStream.stream is a MediaStream
+    // Add audio track
+    var newStream = audioCtx.createMediaStreamDestination();
+    // UNCOMMENT THIS
+    //osc.connect(newStream);
+    // COMMENT THIS
+    osc.connect(gainNode);
+
+    gainNode.connect(newStream);
+
+    // Add video track
+
+    // Extract the video tracks from the stream
+    let videoTracks = stream.getVideoTracks();
+
+    // Use the first video track, add it to the newStream
+    if (videoTracks.length > 0) {
+      newStream.stream.addTrack(videoTracks[0]);
     }
-  );  
-  myVideo.elt.muted = true;   
+
+    let p5l = new p5LiveMedia(
+      this,
+      'CAPTURE',
+      newStream.stream,
+      'Day 5 - 50 Days of Video Chat'
+    );
+    p5l.on('stream', gotStream);
+    p5l.on('disconnect', gotDisconnect);
+
+    otherVideos['me'] = myVideo;
+
+    start = true;
+  });
+  myVideo.elt.muted = true;
 }
 
 function draw() {
@@ -113,20 +126,24 @@ function draw() {
     /*
     Each item in the array represents the decibel value for a specific frequency. The frequencies are spread linearly from 0 to 1/2 of the sample rate. For example, for 48000 sample rate, the last item of the array will represent the decibel value for 24000 Hz.
     */
-    var loudest = -1
+    var loudest = -1;
     dataArray.forEach((x, i) => {
       //if (i > 20) {
-          if (loudest <  0 || x > dataArray[loudest])
-          {
-            loudest = i;
-          }
-        rect(width/analyser.fftSize*i,height-x,width/analyser.fftSize,height);
+      if (loudest < 0 || x > dataArray[loudest]) {
+        loudest = i;
+      }
+      rect(
+        (width / analyser.fftSize) * i,
+        height - x,
+        width / analyser.fftSize,
+        height
+      );
       //}
-    });    
-    var freq = 16000/analyser.fftSize*(loudest+1);
+    });
+    var freq = (16000 / analyser.fftSize) * (loudest + 1);
     console.log(freq);
     osc.frequency.value = freq;
-    
+
     /*
     var wave = generatePeriodicWave(dataArray);
     osc.setPeriodicWave(wave);
@@ -142,10 +159,10 @@ function gotStream(stream, id) {
   otherVideo = stream;
   //otherVideo.id and id are the same and unique identifiers
   //otherVideo.hide();
-  
+
   otherVideos[id] = stream;
 }
 
 function gotDisconnect(id) {
-  delete otherVideos[id]; 
+  delete otherVideos[id];
 }
